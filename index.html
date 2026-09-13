@@ -193,7 +193,8 @@
       <div class="field"><label>Letters</label>
         <span class="seg" id="seg-join">
           <button data-v="off" aria-pressed="true">Separate</button>
-          <button data-v="on">Joined</button>
+          <button data-v="half">Half joined</button>
+          <button data-v="full">Joined</button>
         </span>
       </div>
       <div class="field"><label>Paper</label>
@@ -619,7 +620,7 @@ const TINTS = {
 };
 const CONNECT = /[a-zäöüß]/;
 let opts = { tint:"white", lines:"blank", ink:INKS[0] };
-let connect = false;
+let joinMode = "off";
 
 function layout(text){
   const size = +$("r-size").value;
@@ -716,24 +717,69 @@ function entryOf(it){
   if (!f || f.length < 3) return null;
   return mapPoint(it, f[0], f[1]);
 }
-/* returns null when the pair shouldn't be joined after editing or wrapping */
+/* how far a join may travel, and how far from the baseline the pen may be,
+   as a fraction of the letter size. "half" only joins the pairs that
+   genuinely work; "full" tries everything it can. */
+const JOIN = {
+  half: { dxMin:-0.10, dxMax:0.80, exitOff:0.30, entryOff:0.62, dyMax:0.55, needRight:true },
+  full: { dxMin:-0.28, dxMax:1.15, exitOff:0.68, entryOff:0.95, dyMax:0.90, needRight:false }
+};
+
+/* direction the pen was travelling, in page space */
+function tangent(it, flat, atEnd){
+  const n = flat.length/3;
+  if (n < 2) return null;
+  const step = Math.min(4, n-1);
+  const i0 = atEnd ? n-1-step : 0;
+  const i1 = atEnd ? n-1 : step;
+  const a = mapPoint(it, flat[i0*3], flat[i0*3+1]);
+  const b = mapPoint(it, flat[i1*3], flat[i1*3+1]);
+  const dx = b.x-a.x, dy = b.y-a.y, L = Math.hypot(dx,dy);
+  if (L < 0.0001) return null;
+  return { x: dx/L, y: dy/L };
+}
+
 function joinCurve(a, b){
-  if (!a.joinNext) return null;
+  if (joinMode === "off" || !a.joinNext) return null;
+  const rule = JOIN[joinMode] || JOIN.full;
+  const fa = a.g.s[a.g.s.length-1], fb = b.g.s[0];
+  if (!fa || !fb || fa.length < 6 || fb.length < 6) return null;
+
   const p = exitOf(a), q = entryOf(b);
   if (!p || !q) return null;
+
+  /* the pen must lift near the writing line; the next letter may start
+     anywhere up to x-height, which is where most lowercase letters begin */
+  if (Math.abs(p.y - a.y) > a.size*rule.exitOff) return null;
+  if (Math.abs(q.y - b.y) > b.size*rule.entryOff) return null;
+
   const dx = q.x - p.x, dy = q.y - p.y;
-  if (dx < -a.size*0.25 || dx > a.size*1.1) return null;
-  if (Math.abs(dy) > a.size*0.8) return null;
-  const drop = a.size*0.10;
+  if (dx < a.size*rule.dxMin || dx > a.size*rule.dxMax) return null;
+  if (Math.abs(dy) > a.size*rule.dyMax) return null;
+
+  let tOut = tangent(a, fa, true), tIn = tangent(b, fb, false);
+  if (!tOut || !tIn) return null;
+
+  /* a pen moving left or steeply up at the end can't join cleanly */
+  if (tOut.x < 0.08 || tIn.x < 0.08){
+    if (rule.needRight) return null;
+    if (tOut.x < 0.08) tOut = { x:0.80, y:0.60 };
+    if (tIn.x  < 0.08) tIn  = { x:0.80, y:-0.60 };
+  }
+
+  /* leave along the outgoing direction, arrive along the incoming one:
+     that tangent continuity is what makes the join read as one movement */
+  const reach = Math.hypot(dx,dy)*0.42;
+  const sag = a.size*0.05;
   return {
     p, q,
-    c1: { x: p.x + dx*0.35, y: p.y + drop },
-    c2: { x: q.x - dx*0.35, y: q.y + drop },
+    c1: { x: p.x + tOut.x*reach, y: p.y + tOut.y*reach + sag },
+    c2: { x: q.x - tIn.x*reach,  y: q.y - tIn.y*reach  + sag },
     w: a.size*0.030*a.weight*0.85
   };
 }
 function paintJoins(x, state){
-  if (!connect) return;
+  if (joinMode === "off") return;
   x.save(); x.lineCap = "round"; x.lineJoin = "round"; x.strokeStyle = opts.ink;
   for (let i=0;i<state.items.length-1;i++){
     const j = joinCurve(state.items[i], state.items[i+1]);
@@ -999,7 +1045,7 @@ function pageOps(state){
 
   drawHand(true);
   out.push(hexRGB(opts.ink) + " RG");
-  if (connect){
+  if (joinMode !== "off"){
     for (let i=0;i<state.items.length-1;i++){
       const j = joinCurve(state.items[i], state.items[i+1]);
       if (!j) continue;
@@ -1084,7 +1130,7 @@ function bindSeg(node, fn){
 }
 bindSeg(el.segTint,  v => { opts.tint = v; });
 bindSeg(el.segLines, v => { opts.lines = v; });
-bindSeg(el.segJoin,  v => { connect = (v === "on"); });
+bindSeg(el.segJoin,  v => { joinMode = v; });
 INKS.forEach((c,i)=>{
   const b = document.createElement("button");
   b.style.background = c;
