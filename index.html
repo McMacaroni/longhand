@@ -242,6 +242,11 @@
     <button class="btn" id="pad-next">Save &amp; next</button>
     <button class="btn sec" id="pad-undo">Undo</button>
     <button class="btn sec" id="pad-clear">Clear</button>
+    <span class="seg" id="seg-pad">
+      <button data-v="0.4">Small</button>
+      <button data-v="0.65" aria-pressed="true">Medium</button>
+      <button data-v="1">Large</button>
+    </span>
     <span class="checks">
       <label class="check"><input type="checkbox" id="ghost" checked> Guide letter</label>
       <label class="check"><input type="checkbox" id="pen-only"> Pencil only</label>
@@ -262,7 +267,7 @@ const el = {
   goExport:$("go-export"), goImport:$("go-import"), goReset:$("go-reset"), file:$("file"), fontinfo:$("fontinfo"),
   padView:$("pad-view"), padChar:$("pad-char"), padMeta:$("pad-meta"), chips:$("chips"),
   pad:$("pad"), padDone:$("pad-done"), padNext:$("pad-next"), padUndo:$("pad-undo"),
-  padClear:$("pad-clear"), penOnly:$("pen-only"), ghost:$("ghost"),
+  padClear:$("pad-clear"), penOnly:$("pen-only"), ghost:$("ghost"), segPad:$("seg-pad"),
   views:{ letters:$("view-letters"), write:$("view-write"), font:$("view-font") }
 };
 
@@ -396,21 +401,38 @@ function renderChips(){
   }
 }
 
+let padScale = 0.65;
 function sizePad(){
   const r = window.devicePixelRatio||1;
   const W = el.pad.clientWidth, H = el.pad.clientHeight;
   el.pad.width = Math.max(1, Math.round(W*r));
   el.pad.height = Math.max(1, Math.round(H*r));
   pctx.setTransform(r,0,0,r,0,0);
-  const em = H*0.58, baseY = H*0.74;
-  geo = { W, H, em, baseY, ascY:baseY-em, xY:baseY-em*0.5, capY:baseY-em*0.72, descY:baseY+em*0.25, x0:W*0.20 };
+  /* the guide block spans ascender to descender (1.25 em); keep it centred
+     in the pad whatever the size, so your hand always rests in the same place */
+  const em = H*0.58*padScale;
+  const baseY = H*0.5 + em*0.375;
+  const x0 = Math.max(W*0.08, W*0.5 - em*0.55);
+  geo = { W, H, em, baseY, ascY:baseY-em, xY:baseY-em*0.5, capY:baseY-em*0.72, descY:baseY+em*0.25, x0 };
 }
-window.addEventListener("resize", ()=>{
-  if (!el.padView.classList.contains("on")) return;
+function rescalePad(){
   const snap = normalize(strokes);
   sizePad();
   strokes = snap ? deNorm(snap) : [];
   repaint();
+}
+el.segPad.querySelectorAll("button").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    el.segPad.querySelectorAll("button").forEach(o=>o.setAttribute("aria-pressed", String(o===b)));
+    padScale = +b.dataset.v;
+    font.pad = padScale;
+    persist();
+    rescalePad();
+  });
+});
+window.addEventListener("resize", ()=>{
+  if (!el.padView.classList.contains("on")) return;
+  rescalePad();
 });
 
 const GHOST_FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
@@ -1043,8 +1065,10 @@ if ("serviceWorker" in navigator && location.protocol === "https:"){
 (async function(){
   const raw = await Store.get(KEY);
   if (raw){
-    try{ const d = JSON.parse(raw); if (d && d.glyphs){ font = d; VARIANTS = d.variants || 5; } }catch(e){}
+    try{ const d = JSON.parse(raw); if (d && d.glyphs){ font = d; VARIANTS = d.variants || 5; padScale = d.pad || 0.65; } }catch(e){}
   }
+  el.segPad.querySelectorAll("button").forEach(b=>
+    b.setAttribute("aria-pressed", String(+b.dataset.v === padScale)));
   el.segVariants.querySelectorAll("button").forEach(b=>
     b.setAttribute("aria-pressed", String(+b.dataset.v === VARIANTS)));
   renderGrid();
