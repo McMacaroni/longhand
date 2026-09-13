@@ -134,8 +134,9 @@
   .chips button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
   .padwrap{flex:1;min-height:0;position:relative;background:var(--card);border:1px solid var(--hair);border-radius:var(--r);overflow:hidden}
   .padwrap canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
-  .pad-bot{display:flex;gap:9px;align-items:center;padding-top:12px}
-  .check{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink2)}
+  .pad-bot{display:flex;gap:9px;align-items:center;padding-top:12px;flex-wrap:wrap}
+  .checks{margin-left:auto;display:flex;gap:16px}
+  .check{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink2)}
   .check input{width:17px;height:17px;accent-color:var(--ink)}
 
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -241,7 +242,10 @@
     <button class="btn" id="pad-next">Save &amp; next</button>
     <button class="btn sec" id="pad-undo">Undo</button>
     <button class="btn sec" id="pad-clear">Clear</button>
-    <label class="check"><input type="checkbox" id="pen-only"> Pencil only</label>
+    <span class="checks">
+      <label class="check"><input type="checkbox" id="ghost" checked> Guide letter</label>
+      <label class="check"><input type="checkbox" id="pen-only"> Pencil only</label>
+    </span>
   </div>
 </div>
 
@@ -258,7 +262,7 @@ const el = {
   goExport:$("go-export"), goImport:$("go-import"), goReset:$("go-reset"), file:$("file"), fontinfo:$("fontinfo"),
   padView:$("pad-view"), padChar:$("pad-char"), padMeta:$("pad-meta"), chips:$("chips"),
   pad:$("pad"), padDone:$("pad-done"), padNext:$("pad-next"), padUndo:$("pad-undo"),
-  padClear:$("pad-clear"), penOnly:$("pen-only"),
+  padClear:$("pad-clear"), penOnly:$("pen-only"), ghost:$("ghost"),
   views:{ letters:$("view-letters"), write:$("view-write"), font:$("view-font") }
 };
 
@@ -409,9 +413,31 @@ window.addEventListener("resize", ()=>{
   repaint();
 });
 
+const GHOST_FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
+let xHeightRatio = null;
+function drawGhost(){
+  if (!el.ghost.checked || !cur.ch || !geo) return;
+  if (xHeightRatio === null){
+    pctx.font = "100px " + GHOST_FONT;
+    const m = pctx.measureText("x");
+    xHeightRatio = (m.actualBoundingBoxAscent || 52)/100;
+  }
+  /* size the reference so its x-height lands exactly on the x-height line,
+     which puts ascenders, caps and descenders on their lines too */
+  const size = (geo.em*0.5)/xHeightRatio;
+  pctx.save();
+  pctx.font = size.toFixed(1) + "px " + GHOST_FONT;
+  pctx.textAlign = "left";
+  pctx.textBaseline = "alphabetic";
+  pctx.fillStyle = "#E9EBED";
+  pctx.fillText(cur.ch, geo.x0, geo.baseY);
+  pctx.restore();
+}
+
 function guides(){
   if (!geo) return;
   pctx.clearRect(0,0,geo.W,geo.H);
+  drawGhost();
   pctx.lineWidth = 1;
   pctx.strokeStyle = "#F0F0EC";
   [geo.ascY, geo.capY, geo.xY, geo.descY].forEach(y=>{
@@ -458,6 +484,7 @@ el.pad.addEventListener("pointermove", e=>{
 ["pointerup","pointercancel"].forEach(t => el.pad.addEventListener(t, ()=>{ active = null; }));
 
 el.padUndo.addEventListener("click", ()=>{ strokes.pop(); repaint(); });
+el.ghost.addEventListener("change", repaint);
 el.padClear.addEventListener("click", ()=>{ strokes = []; repaint(); });
 el.padDone.addEventListener("click", closePad);
 el.padNext.addEventListener("click", ()=>{
