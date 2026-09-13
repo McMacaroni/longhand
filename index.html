@@ -186,15 +186,28 @@
     <div class="fields">
       <div class="field"><label>Size <span class="v" id="lbl-size"></span></label><input type="range" id="r-size" min="24" max="80" value="44"></div>
       <div class="field"><label>Line spacing <span class="v" id="lbl-lh"></span></label><input type="range" id="r-lh" min="120" max="320" value="200"></div>
-      <div class="field"><label>Letter spacing <span class="v" id="lbl-ls"></span></label><input type="range" id="r-ls" min="-6" max="14" value="3"></div>
+      <div class="field"><label>Letter spacing <span class="v" id="lbl-ls"></span></label><input type="range" id="r-ls" min="-160" max="120" value="0"></div>
       <div class="field"><label>Slant <span class="v" id="lbl-sl"></span></label><input type="range" id="r-sl" min="-12" max="20" value="0"></div>
       <div class="field"><label>Messiness <span class="v" id="lbl-ms"></span></label><input type="range" id="r-ms" min="0" max="200" value="100"></div>
       <div class="field"><label>Pen weight <span class="v" id="lbl-pw"></span></label><input type="range" id="r-pw" min="40" max="220" value="100"></div>
+      <div class="field"><label>Letters</label>
+        <span class="seg" id="seg-join">
+          <button data-v="off" aria-pressed="true">Separate</button>
+          <button data-v="on">Joined</button>
+        </span>
+      </div>
       <div class="field"><label>Paper</label>
-        <span class="seg" id="seg-paper">
+        <span class="seg" id="seg-tint">
+          <button data-v="white" aria-pressed="true">White</button>
+          <button data-v="cream">Cream</button>
+          <button data-v="yellow">Yellow</button>
+        </span>
+      </div>
+      <div class="field"><label>Lines</label>
+        <span class="seg" id="seg-lines">
           <button data-v="blank" aria-pressed="true">Blank</button>
           <button data-v="ruled">Ruled</button>
-          <button data-v="grid">Grid</button>
+          <button data-v="squared">Squared</button>
         </span>
       </div>
       <div class="field"><label>Ink</label><div class="inks" id="inks"></div></div>
@@ -265,7 +278,8 @@ const el = {
   goNext:$("go-next"), segVariants:$("seg-variants"),
   text:$("text"), goRender:$("go-render"), goShuffle:$("go-shuffle"), goSave:$("go-savepage"),
   goPdf:$("go-pdf"), tools:$("tools"), toolTip:$("tooltip"),
-  missing:$("missing"), sheets:$("sheets"), segPaper:$("seg-paper"), inks:$("inks"),
+  missing:$("missing"), sheets:$("sheets"), inks:$("inks"),
+  segTint:$("seg-tint"), segLines:$("seg-lines"), segJoin:$("seg-join"),
   goExport:$("go-export"), goImport:$("go-import"), goReset:$("go-reset"), file:$("file"), fontinfo:$("fontinfo"),
   padView:$("pad-view"), padChar:$("pad-char"), padMeta:$("pad-meta"), chips:$("chips"),
   pad:$("pad"), padDone:$("pad-done"), padNext:$("pad-next"), padUndo:$("pad-undo"),
@@ -598,7 +612,14 @@ function pickGlyph(ch){
 
 const PAGE = { w:1240, h:1754, pad:110 };
 const INKS = ["#1B3A6B","#15181B","#2F4858","#43331F","#7A1C2E"];
-let opts = { paper:"blank", ink:INKS[0] };
+const TINTS = {
+  white:  { bg:"#FFFFFF", line:"#D5DDE4" },
+  cream:  { bg:"#FBF7EC", line:"#DCD5C4" },
+  yellow: { bg:"#FBF3D0", line:"#DCD0A4" }
+};
+const CONNECT = /[a-zäöüß]/;
+let opts = { tint:"white", lines:"blank", ink:INKS[0] };
+let connect = false;
 
 function layout(text){
   const size = +$("r-size").value;
@@ -630,11 +651,13 @@ function layout(text){
       }
       if (!items.length) continue;
       if (x + w > PAGE.pad + maxW && x > PAGE.pad) newline();
-      for (const { g, ch } of items){
+      for (let ii=0; ii<items.length; ii++){
+        const g = items[ii].g, ch = items[ii].ch, nx = items[ii+1];
         drift += (Math.random()-0.5)*size*0.012*mess;
         drift = Math.max(-size*0.05, Math.min(size*0.05, drift));
         pages[page].push({
           g, ch, x,
+          joinNext: !!nx && CONNECT.test(ch) && CONNECT.test(nx.ch),
           y: y + drift + (x-PAGE.pad)*slope,
           size: size*(1 + (Math.random()-0.5)*0.05*mess),
           rot: (Math.random()-0.5)*0.035*mess,
@@ -656,18 +679,72 @@ let tool = "move";
 let rendered = false;
 
 function paintPaper(x){
-  if (opts.paper === "blank") return;
-  x.strokeStyle = "#CFDCE6"; x.lineWidth = 1;
-  for (let yy = PAGE.pad + meta.size*1.1; yy < PAGE.h - PAGE.pad*0.5; yy += meta.lh){
+  const t = TINTS[opts.tint] || TINTS.white;
+  x.fillStyle = t.bg; x.fillRect(0,0,PAGE.w,PAGE.h);
+  if (opts.lines === "blank") return;
+  x.strokeStyle = t.line; x.lineWidth = 1;
+  const pitch = opts.lines === "squared" ? meta.lh/2 : meta.lh;
+  const first = PAGE.pad + meta.size*1.1;
+  for (let yy = first; yy < PAGE.h - PAGE.pad*0.4; yy += pitch){
     x.beginPath(); x.moveTo(PAGE.pad*0.5, yy+.5); x.lineTo(PAGE.w-PAGE.pad*0.5, yy+.5); x.stroke();
   }
-  if (opts.paper === "grid"){
-    for (let xx = PAGE.pad*0.5; xx < PAGE.w-PAGE.pad*0.4; xx += meta.lh){
-      x.beginPath(); x.moveTo(xx+.5, PAGE.pad*0.5); x.lineTo(xx+.5, PAGE.h-PAGE.pad*0.5); x.stroke();
+  for (let yy = first - pitch; yy > PAGE.pad*0.4; yy -= pitch){
+    x.beginPath(); x.moveTo(PAGE.pad*0.5, yy+.5); x.lineTo(PAGE.w-PAGE.pad*0.5, yy+.5); x.stroke();
+  }
+  if (opts.lines === "squared"){
+    for (let xx = PAGE.pad*0.5; xx < PAGE.w-PAGE.pad*0.4; xx += pitch){
+      x.beginPath(); x.moveTo(xx+.5, PAGE.pad*0.4); x.lineTo(xx+.5, PAGE.h-PAGE.pad*0.4); x.stroke();
     }
   }
-  x.strokeStyle = "#EBCBCF"; x.lineWidth = 2;
-  x.beginPath(); x.moveTo(PAGE.pad*0.82, 0); x.lineTo(PAGE.pad*0.82, PAGE.h); x.stroke();
+}
+
+/* ---------- joining strokes ---------- */
+function mapPoint(it, lx, ly){
+  const k = it.size/EM;
+  let px = lx*k, py = ly*k;
+  px -= Math.tan(it.slant)*py;
+  const c = Math.cos(it.rot), s = Math.sin(it.rot);
+  return { x: it.x + px*c - py*s, y: it.y + px*s + py*c };
+}
+function exitOf(it){
+  const f = it.g.s[it.g.s.length-1];
+  if (!f || f.length < 3) return null;
+  return mapPoint(it, f[f.length-3], f[f.length-2]);
+}
+function entryOf(it){
+  const f = it.g.s[0];
+  if (!f || f.length < 3) return null;
+  return mapPoint(it, f[0], f[1]);
+}
+/* returns null when the pair shouldn't be joined after editing or wrapping */
+function joinCurve(a, b){
+  if (!a.joinNext) return null;
+  const p = exitOf(a), q = entryOf(b);
+  if (!p || !q) return null;
+  const dx = q.x - p.x, dy = q.y - p.y;
+  if (dx < -a.size*0.25 || dx > a.size*1.1) return null;
+  if (Math.abs(dy) > a.size*0.8) return null;
+  const drop = a.size*0.10;
+  return {
+    p, q,
+    c1: { x: p.x + dx*0.35, y: p.y + drop },
+    c2: { x: q.x - dx*0.35, y: q.y + drop },
+    w: a.size*0.030*a.weight*0.85
+  };
+}
+function paintJoins(x, state){
+  if (!connect) return;
+  x.save(); x.lineCap = "round"; x.lineJoin = "round"; x.strokeStyle = opts.ink;
+  for (let i=0;i<state.items.length-1;i++){
+    const j = joinCurve(state.items[i], state.items[i+1]);
+    if (!j) continue;
+    x.lineWidth = j.w;
+    x.beginPath();
+    x.moveTo(j.p.x, j.p.y);
+    x.bezierCurveTo(j.c1.x, j.c1.y, j.c2.x, j.c2.y, j.q.x, j.q.y);
+    x.stroke();
+  }
+  x.restore();
 }
 
 function paintHand(x, h){
@@ -685,9 +762,9 @@ function paintHand(x, h){
 function paintState(cv, state){
   const x = cv.getContext("2d");
   x.setTransform(1,0,0,1,0,0);
-  x.fillStyle = "#FFFFFF"; x.fillRect(0,0,PAGE.w,PAGE.h);
   paintPaper(x);
   for (const h of state.hand) if (h.type === "highlight") paintHand(x,h);
+  paintJoins(x, state);
   for (const it of state.items){
     x.save();
     x.translate(it.x, it.y);
@@ -891,15 +968,18 @@ function pageOps(state){
   out.push("1 J 1 j");
   out.push(S.toFixed(4) + " 0 0 " + (-S).toFixed(4) + " 0 " + (PAGE.h*S).toFixed(2) + " cm");
 
-  if (opts.paper !== "blank"){
-    out.push("0.812 0.863 0.902 RG 1 w");
-    for (let yy = PAGE.pad + meta.size*1.1; yy < PAGE.h - PAGE.pad*0.5; yy += meta.lh)
-      out.push(f2(PAGE.pad*0.5)+" "+f2(yy)+" m "+f2(PAGE.w-PAGE.pad*0.5)+" "+f2(yy)+" l S");
-    if (opts.paper === "grid")
-      for (let xx = PAGE.pad*0.5; xx < PAGE.w-PAGE.pad*0.4; xx += meta.lh)
-        out.push(f2(xx)+" "+f2(PAGE.pad*0.5)+" m "+f2(xx)+" "+f2(PAGE.h-PAGE.pad*0.5)+" l S");
-    out.push("0.922 0.796 0.812 RG 2 w");
-    out.push(f2(PAGE.pad*0.82)+" 0 m "+f2(PAGE.pad*0.82)+" "+f2(PAGE.h)+" l S");
+  const t = TINTS[opts.tint] || TINTS.white;
+  out.push(hexRGB(t.bg) + " rg 0 0 " + f2(PAGE.w) + " " + f2(PAGE.h) + " re f");
+  if (opts.lines !== "blank"){
+    out.push(hexRGB(t.line) + " RG 1 w");
+    const pitch = opts.lines === "squared" ? meta.lh/2 : meta.lh;
+    const first = PAGE.pad + meta.size*1.1;
+    const rule = yy => out.push(f2(PAGE.pad*0.5)+" "+f2(yy)+" m "+f2(PAGE.w-PAGE.pad*0.5)+" "+f2(yy)+" l S");
+    for (let yy = first; yy < PAGE.h - PAGE.pad*0.4; yy += pitch) rule(yy);
+    for (let yy = first - pitch; yy > PAGE.pad*0.4; yy -= pitch) rule(yy);
+    if (opts.lines === "squared")
+      for (let xx = PAGE.pad*0.5; xx < PAGE.w-PAGE.pad*0.4; xx += pitch)
+        out.push(f2(xx)+" "+f2(PAGE.pad*0.4)+" m "+f2(xx)+" "+f2(PAGE.h-PAGE.pad*0.4)+" l S");
   }
 
   const drawHand = only=>{
@@ -919,6 +999,15 @@ function pageOps(state){
 
   drawHand(true);
   out.push(hexRGB(opts.ink) + " RG");
+  if (connect){
+    for (let i=0;i<state.items.length-1;i++){
+      const j = joinCurve(state.items[i], state.items[i+1]);
+      if (!j) continue;
+      out.push(f2(j.w) + " w");
+      out.push(f2(j.p.x)+" "+f2(j.p.y)+" m");
+      out.push(f2(j.c1.x)+" "+f2(j.c1.y)+" "+f2(j.c2.x)+" "+f2(j.c2.y)+" "+f2(j.q.x)+" "+f2(j.q.y)+" c S");
+    }
+  }
   for (const it of state.items){
     out.push("q");
     const c = Math.cos(it.rot), s = Math.sin(it.rot);
@@ -980,12 +1069,22 @@ bindRange("r-sl","lbl-sl", v=>v+"°");
 bindRange("r-ms","lbl-ms", v=>v+"%");
 bindRange("r-pw","lbl-pw", v=>v+"%");
 
-el.segPaper.querySelectorAll("button").forEach(b=>{
-  b.addEventListener("click", ()=>{
-    el.segPaper.querySelectorAll("button").forEach(o=>o.setAttribute("aria-pressed", String(o===b)));
-    opts.paper = b.dataset.v; if (rendered) doRender();
+function repaintPages(){
+  const cvs = el.sheets.querySelectorAll("canvas");
+  pageStates.forEach((s,i)=>{ if (cvs[i]) paintState(cvs[i], s); });
+}
+function bindSeg(node, fn){
+  node.querySelectorAll("button").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      node.querySelectorAll("button").forEach(o=>o.setAttribute("aria-pressed", String(o===b)));
+      fn(b.dataset.v);
+      if (rendered) repaintPages();
+    });
   });
-});
+}
+bindSeg(el.segTint,  v => { opts.tint = v; });
+bindSeg(el.segLines, v => { opts.lines = v; });
+bindSeg(el.segJoin,  v => { connect = (v === "on"); });
 INKS.forEach((c,i)=>{
   const b = document.createElement("button");
   b.style.background = c;
