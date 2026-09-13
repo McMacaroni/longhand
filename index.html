@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Longhand">
+<meta name="theme-color" content="#F4F4F1">
+<title>Longhand</title>
+<style>
+  :root{
+    --bg:#F4F4F1;
+    --card:#FFFFFF;
+    --ink:#16181A;
+    --ink2:#5E6670;
+    --ink3:#A2A8AE;
+    --hair:#E3E3DE;
+    --hair2:#EEEEE9;
+    --red:#B23A48;
+    --r:14px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--bg);color:var(--ink);
+    font:400 16px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    overscroll-behavior-y:none;
+    user-select:none;-webkit-user-select:none;
+  }
+  button{font:inherit;color:inherit;cursor:pointer}
+  :focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:4px}
+
+  .top{
+    position:sticky;top:0;z-index:20;background:rgba(244,244,241,.86);
+    -webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px);
+    padding-top:env(safe-area-inset-top);
+  }
+  .top .in{max-width:1040px;margin:0 auto;padding:14px 20px 0;display:flex;align-items:center;gap:20px}
+  .mark{font-size:16px;font-weight:600;letter-spacing:-.015em}
+  .tabs{display:flex;gap:22px;margin-left:8px}
+  .tabs button{background:none;border:0;padding:6px 0;font-size:15px;color:var(--ink3);letter-spacing:-.01em}
+  .tabs button[aria-selected="true"]{color:var(--ink);font-weight:500}
+  .count{margin-left:auto;font-size:13px;color:var(--ink3);font-variant-numeric:tabular-nums}
+  .rail{height:1px;background:var(--hair);margin-top:14px;position:relative}
+  .rail i{position:absolute;left:0;top:0;height:1px;background:var(--ink);transition:width .35s ease}
+
+  main{max-width:1040px;margin:0 auto;padding:24px 20px calc(60px + env(safe-area-inset-bottom))}
+  .view{display:none}
+  .view.on{display:block}
+  h2{font-size:15px;font-weight:500;margin:0;letter-spacing:-.01em}
+  .lede{font-size:15px;color:var(--ink2);margin:0 0 26px;max-width:62ch;line-height:1.55}
+
+  .rowhead{display:flex;align-items:baseline;gap:12px;margin:32px 0 12px}
+  .rowhead .n{margin-left:auto;font-size:13px;color:var(--ink3);font-variant-numeric:tabular-nums}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:7px}
+  .tile{
+    position:relative;aspect-ratio:1;background:var(--card);border:1px solid var(--hair);
+    border-radius:12px;padding:0;overflow:hidden;display:flex;align-items:center;justify-content:center;
+    transition:border-color .15s ease,transform .1s ease
+  }
+  .tile:active{transform:scale(.97)}
+  .tile canvas{width:100%;height:100%;display:block}
+  .tile .ph{font-size:24px;font-weight:300;color:#CDD2D6}
+  .tile .meter{position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--hair2)}
+  .tile .meter i{display:block;height:2px;background:var(--ink);transition:width .2s ease}
+  .tile.full{border-color:#CFD4D8}
+
+  .seg{display:inline-flex;border:1px solid var(--hair);border-radius:9px;overflow:hidden;background:var(--card)}
+  .seg button{border:0;background:none;padding:6px 13px;font-size:13px;color:var(--ink2);border-right:1px solid var(--hair)}
+  .seg button:last-child{border-right:0}
+  .seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
+
+  .actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin:0 0 22px}
+  .btn{padding:11px 19px;border-radius:11px;border:1px solid var(--ink);background:var(--ink);color:#fff;font-size:15px;letter-spacing:-.01em}
+  .btn.sec{background:var(--card);color:var(--ink);border-color:var(--hair)}
+  .btn.warn{background:var(--card);color:var(--red);border-color:#EBD4D7}
+  .btn:disabled{opacity:.3}
+
+  textarea{
+    width:100%;min-height:130px;background:var(--card);border:1px solid var(--hair);border-radius:var(--r);
+    padding:16px;font:inherit;font-size:16px;line-height:1.6;color:var(--ink);resize:vertical;
+    user-select:text;-webkit-user-select:text
+  }
+  textarea::placeholder{color:var(--ink3)}
+  textarea:focus{outline:none;border-color:#C9CDD1}
+
+  .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:20px 30px;margin:24px 0 26px}
+  .field label{display:flex;justify-content:space-between;font-size:13px;color:var(--ink2);margin-bottom:7px}
+  .field .v{color:var(--ink);font-variant-numeric:tabular-nums}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:18px;background:none;margin:0}
+  input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--hair);border-radius:2px}
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:17px;height:17px;border-radius:50%;background:var(--card);
+    border:1px solid #C9CDD1;box-shadow:0 1px 2px rgba(0,0,0,.12);margin-top:-8px
+  }
+  .inks{display:flex;gap:9px}
+  .inks button{width:24px;height:24px;padding:0;border-radius:50%;border:1px solid rgba(0,0,0,.12)}
+  .inks button[aria-pressed="true"]{box-shadow:0 0 0 2px var(--bg),0 0 0 3px var(--ink)}
+
+  .note{font-size:13px;color:var(--ink3);margin:0 0 16px}
+  .note b{color:var(--red);font-weight:400}
+  .sheets{display:flex;flex-direction:column;gap:22px;margin-top:24px}
+  .sheets canvas{width:100%;display:block;border-radius:2px;box-shadow:0 1px 2px rgba(0,0,0,.07),0 8px 24px rgba(0,0,0,.07)}
+  .empty{border:1px dashed var(--hair);border-radius:var(--r);padding:40px 24px;text-align:center;color:var(--ink3);font-size:14px}
+
+  .tools{display:none;gap:7px;align-items:center;flex-wrap:wrap;margin:0 0 18px}
+  .tools.on{display:flex}
+  .tools button{
+    padding:9px 15px;border-radius:10px;border:1px solid var(--hair);background:var(--card);
+    font-size:14px;color:var(--ink2)
+  }
+  .tools button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+  .tools .gap{flex:1}
+  .tools .tip{font-size:13px;color:var(--ink3)}
+
+  .pad-view{
+    position:fixed;inset:0;z-index:60;background:var(--bg);display:none;flex-direction:column;
+    padding:calc(10px + env(safe-area-inset-top)) 14px calc(14px + env(safe-area-inset-bottom));
+  }
+  .pad-view.on{display:flex}
+  .pad-top{display:flex;align-items:center;gap:14px;padding-bottom:12px}
+  .pad-top .ch{font-size:22px;font-weight:600;min-width:26px;letter-spacing:-.02em}
+  .pad-top .meta{font-size:13px;color:var(--ink3)}
+  .pad-top .sp{flex:1}
+  .chips{display:flex;gap:5px}
+  .chips button{
+    width:28px;height:28px;padding:0;border-radius:8px;border:1px solid var(--hair);background:var(--card);
+    font-size:12px;color:var(--ink3);font-variant-numeric:tabular-nums
+  }
+  .chips button.has{color:var(--ink);border-color:#CFD4D8}
+  .chips button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+  .padwrap{flex:1;min-height:0;position:relative;background:var(--card);border:1px solid var(--hair);border-radius:var(--r);overflow:hidden}
+  .padwrap canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+  .pad-bot{display:flex;gap:9px;align-items:center;padding-top:12px}
+  .check{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink2)}
+  .check input{width:17px;height:17px;accent-color:var(--ink)}
+
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+  @media (max-width:560px){
+    .top .in{gap:12px;padding:12px 16px 0}
+    .tabs{gap:16px;margin-left:0}
+    .mark{display:none}
+    main{padding:20px 16px 60px}
+    .pad-top .meta{display:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="in">
+    <span class="mark">Longhand</span>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="letters" aria-selected="true">Letters</button>
+      <button role="tab" data-tab="write" aria-selected="false">Write</button>
+      <button role="tab" data-tab="font" aria-selected="false">Font</button>
+    </div>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="rail"><i id="rail"></i></div>
+</div>
+
+<main>
+  <section class="view on" id="view-letters">
+    <p class="lede">Draw each letter a few times, slightly differently each time. That variation is what keeps the finished text from looking like a font.</p>
+    <div class="actions">
+      <button class="btn" id="go-next">Draw the next one</button>
+      <span class="seg" id="seg-variants">
+        <button data-v="3">3 each</button>
+        <button data-v="5" aria-pressed="true">5 each</button>
+        <button data-v="8">8 each</button>
+      </span>
+    </div>
+    <div id="groups"></div>
+  </section>
+
+  <section class="view" id="view-write">
+    <textarea id="text" placeholder="Paste your text here."></textarea>
+    <div class="fields">
+      <div class="field"><label>Size <span class="v" id="lbl-size"></span></label><input type="range" id="r-size" min="24" max="80" value="44"></div>
+      <div class="field"><label>Line spacing <span class="v" id="lbl-lh"></span></label><input type="range" id="r-lh" min="120" max="320" value="200"></div>
+      <div class="field"><label>Letter spacing <span class="v" id="lbl-ls"></span></label><input type="range" id="r-ls" min="-6" max="14" value="3"></div>
+      <div class="field"><label>Slant <span class="v" id="lbl-sl"></span></label><input type="range" id="r-sl" min="-12" max="20" value="0"></div>
+      <div class="field"><label>Messiness <span class="v" id="lbl-ms"></span></label><input type="range" id="r-ms" min="0" max="200" value="100"></div>
+      <div class="field"><label>Pen weight <span class="v" id="lbl-pw"></span></label><input type="range" id="r-pw" min="40" max="220" value="100"></div>
+      <div class="field"><label>Paper</label>
+        <span class="seg" id="seg-paper">
+          <button data-v="blank" aria-pressed="true">Blank</button>
+          <button data-v="ruled">Ruled</button>
+          <button data-v="grid">Grid</button>
+        </span>
+      </div>
+      <div class="field"><label>Ink</label><div class="inks" id="inks"></div></div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="go-render">Write it out</button>
+      <button class="btn sec" id="go-shuffle" disabled>Shuffle</button>
+      <button class="btn sec" id="go-pdf" disabled>Export PDF</button>
+      <button class="btn sec" id="go-savepage" disabled>Save as image</button>
+    </div>
+    <div class="tools" id="tools">
+      <button data-t="move" aria-pressed="true">Move</button>
+      <button data-t="swap">Swap letter</button>
+      <button data-t="erase">Erase</button>
+      <button data-t="pen">Pen</button>
+      <button data-t="highlight">Highlight</button>
+      <button data-t="undo" id="tool-undo">Undo</button>
+      <span class="gap"></span>
+      <span class="tip" id="tooltip"></span>
+    </div>
+    <p class="note" id="missing"></p>
+    <div class="sheets" id="sheets"></div>
+  </section>
+
+  <section class="view" id="view-font">
+    <p class="lede">Your letters are stored on this device only. Export the file to move them to another device, or to keep a backup.</p>
+    <div class="actions">
+      <button class="btn" id="go-export">Export file</button>
+      <button class="btn sec" id="go-import">Import file</button>
+      <button class="btn warn" id="go-reset">Delete all letters</button>
+    </div>
+    <input type="file" id="file" accept="application/json,.json" hidden>
+    <p class="note" id="fontinfo"></p>
+    <p class="note">Add to Home Screen from the Safari share menu to run this full screen and offline.</p>
+  </section>
+</main>
+
+<div class="pad-view" id="pad-view">
+  <div class="pad-top">
+    <span class="ch" id="pad-char"></span>
+    <span class="meta" id="pad-meta"></span>
+    <span class="sp"></span>
+    <div class="chips" id="chips"></div>
+    <button class="btn sec" id="pad-done">Done</button>
+  </div>
+  <div class="padwrap"><canvas id="pad"></canvas></div>
+  <div class="pad-bot">
+    <button class="btn" id="pad-next">Save &amp; next</button>
+    <button class="btn sec" id="pad-undo">Undo</button>
+    <button class="btn sec" id="pad-clear">Clear</button>
+    <label class="check"><input type="checkbox" id="pen-only"> Pencil only</label>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+
+const el = {
+  count:$("count"), rail:$("rail"), groups:$("groups"),
+  goNext:$("go-next"), segVariants:$("seg-variants"),
+  text:$("text"), goRender:$("go-render"), goShuffle:$("go-shuffle"), goSave:$("go-savepage"),
+  goPdf:$("go-pdf"), tools:$("tools"), toolTip:$("tooltip"),
+  missing:$("missing"), sheets:$("sheets"), segPaper:$("seg-paper"), inks:$("inks"),
+  goExport:$("go-export"), goImport:$("go-import"), goReset:$("go-reset"), file:$("file"), fontinfo:$("fontinfo"),
+  padView:$("pad-view"), padChar:$("pad-char"), padMeta:$("pad-meta"), chips:$("chips"),
+  pad:$("pad"), padDone:$("pad-done"), padNext:$("pad-next"), padUndo:$("pad-undo"),
+  padClear:$("pad-clear"), penOnly:$("pen-only"),
+  views:{ letters:$("view-letters"), write:$("view-write"), font:$("view-font") }
+};
+
+/* ---------- storage ---------- */
+const KEY = "longhand:font:v1";
+const Store = {
+  async get(k){
+    if (window.storage){ try{ const r = await window.storage.get(k); return r ? r.value : null; }catch(e){ return null; } }
+    try{ return localStorage.getItem(k); }catch(e){ return null; }
+  },
+  async set(k,v){
+    if (window.storage){ try{ await window.storage.set(k,v); return true; }catch(e){ return false; } }
+    try{ localStorage.setItem(k,v); return true; }catch(e){ return false; }
+  }
+};
+
+/* ---------- model ---------- */
+const GROUPS = [
+  ["Lowercase","abcdefghijklmnopqrstuvwxyz".split("")],
+  ["Uppercase","ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")],
+  ["German","äöüßÄÖÜ".split("")],
+  ["Numbers","0123456789".split("")],
+  ["Punctuation",[".",",","!","?","'","\"","-","–",":",";","(",")","/","&","@","€","%","+","="]]
+];
+const ALL = GROUPS.flatMap(g => g[1]);
+const EM = 1000;
+let VARIANTS = 5;
+let font = { v:1, variants:5, glyphs:{} };
+
+const listOf = ch => font.glyphs[ch] || [];
+const countOf = ch => listOf(ch).filter(Boolean).length;
+
+let saveTimer = null;
+function persist(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async ()=>{
+    const ok = await Store.set(KEY, JSON.stringify(font));
+    if (!ok) el.fontinfo.innerHTML = "<b>Could not save on this device. Export the file so you don't lose the work.</b>";
+  }, 200);
+}
+
+/* ---------- tabs ---------- */
+document.querySelectorAll(".tabs button").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    const t = b.dataset.tab;
+    document.querySelectorAll(".tabs button").forEach(o=>o.setAttribute("aria-selected", String(o===b)));
+    for (const k in el.views) el.views[k].classList.toggle("on", k===t);
+    if (t==="font") showFontInfo();
+  });
+});
+
+/* ---------- letter grid ---------- */
+function renderGrid(){
+  el.groups.innerHTML = "";
+  for (const [name, chars] of GROUPS){
+    const head = document.createElement("div");
+    head.className = "rowhead";
+    const h = document.createElement("h2"); h.textContent = name;
+    const n = document.createElement("span"); n.className = "n";
+    n.textContent = chars.filter(c=>countOf(c)>0).length + " / " + chars.length;
+    head.append(h,n); el.groups.appendChild(head);
+    const g = document.createElement("div"); g.className = "grid";
+    for (const ch of chars) g.appendChild(makeTile(ch));
+    el.groups.appendChild(g);
+  }
+  const done = ALL.reduce((a,c)=>a+countOf(c),0);
+  const total = ALL.length*VARIANTS;
+  el.count.textContent = done + " / " + total;
+  el.rail.style.width = (100*done/total) + "%";
+}
+
+function makeTile(ch){
+  const b = document.createElement("button");
+  b.className = "tile" + (countOf(ch) >= VARIANTS ? " full" : "");
+  b.setAttribute("aria-label", "Draw " + ch);
+  const gs = listOf(ch).filter(Boolean);
+  if (gs.length){
+    const c = document.createElement("canvas");
+    b.appendChild(c);
+    requestAnimationFrame(()=>drawThumb(c, gs[0]));
+  } else {
+    const s = document.createElement("span"); s.className = "ph"; s.textContent = ch;
+    b.appendChild(s);
+  }
+  const m = document.createElement("span"); m.className = "meter";
+  const i = document.createElement("i");
+  i.style.width = Math.min(100, 100*countOf(ch)/VARIANTS) + "%";
+  m.appendChild(i); b.appendChild(m);
+  b.addEventListener("click", ()=> openPad(ch, firstEmpty(ch)));
+  return b;
+}
+function firstEmpty(ch){
+  const gs = listOf(ch);
+  for (let i=0;i<VARIANTS;i++) if (!gs[i]) return i;
+  return 0;
+}
+function drawThumb(cv, g){
+  const r = window.devicePixelRatio||1, W = cv.clientWidth, H = cv.clientHeight;
+  if (!W || !H) return;
+  cv.width = W*r; cv.height = H*r;
+  const x = cv.getContext("2d"); x.setTransform(r,0,0,r,0,0);
+  const size = H*0.50;
+  paintGlyph(x, g, (W - g.w/EM*size)/2, H*0.64, size, "#16181A", 1);
+}
+
+/* ---------- drawing pad ---------- */
+let cur = { ch:null, idx:0 }, strokes = [], active = null, geo = null;
+const pctx = el.pad.getContext("2d");
+
+function openPad(ch, idx){
+  cur = { ch, idx };
+  el.padView.classList.add("on");
+  el.padChar.textContent = ch;
+  el.padMeta.textContent = "variant " + (idx+1) + " of " + VARIANTS;
+  renderChips();
+  sizePad();
+  strokes = listOf(ch)[idx] ? deNorm(listOf(ch)[idx]) : [];
+  repaint();
+}
+function closePad(){ commit(); el.padView.classList.remove("on"); renderGrid(); }
+
+function renderChips(){
+  el.chips.innerHTML = "";
+  for (let i=0;i<VARIANTS;i++){
+    const b = document.createElement("button");
+    b.textContent = i+1;
+    if (listOf(cur.ch)[i]) b.classList.add("has");
+    b.setAttribute("aria-pressed", String(i===cur.idx));
+    b.addEventListener("click", ()=>{ commit(); openPad(cur.ch, i); });
+    el.chips.appendChild(b);
+  }
+}
+
+function sizePad(){
+  const r = window.devicePixelRatio||1;
+  const W = el.pad.clientWidth, H = el.pad.clientHeight;
+  el.pad.width = Math.max(1, Math.round(W*r));
+  el.pad.height = Math.max(1, Math.round(H*r));
+  pctx.setTransform(r,0,0,r,0,0);
+  const em = H*0.58, baseY = H*0.74;
+  geo = { W, H, em, baseY, ascY:baseY-em, xY:baseY-em*0.5, capY:baseY-em*0.72, descY:baseY+em*0.25, x0:W*0.20 };
+}
+window.addEventListener("resize", ()=>{
+  if (!el.padView.classList.contains("on")) return;
+  const snap = normalize(strokes);
+  sizePad();
+  strokes = snap ? deNorm(snap) : [];
+  repaint();
+});
+
+function guides(){
+  if (!geo) return;
+  pctx.clearRect(0,0,geo.W,geo.H);
+  pctx.lineWidth = 1;
+  pctx.strokeStyle = "#F0F0EC";
+  [geo.ascY, geo.capY, geo.xY, geo.descY].forEach(y=>{
+    pctx.beginPath(); pctx.moveTo(0,y+.5); pctx.lineTo(geo.W,y+.5); pctx.stroke();
+  });
+  pctx.strokeStyle = "#C6CDD4";
+  pctx.beginPath(); pctx.moveTo(0,geo.baseY+.5); pctx.lineTo(geo.W,geo.baseY+.5); pctx.stroke();
+  pctx.strokeStyle = "#F2DDE0";
+  pctx.beginPath(); pctx.moveTo(geo.x0+.5,0); pctx.lineTo(geo.x0+.5,geo.H); pctx.stroke();
+}
+function repaint(){ guides(); for (const st of strokes) paintRaw(st); }
+function paintRaw(st){
+  if (!geo) return;
+  pctx.strokeStyle = "#16181A"; pctx.lineCap = "round"; pctx.lineJoin = "round";
+  const base = geo.em*0.030;
+  for (let i=1;i<st.length;i++){
+    const a = st[i-1], b = st[i];
+    pctx.lineWidth = base*(0.55 + 0.9*((a.p+b.p)/2));
+    pctx.beginPath(); pctx.moveTo(a.x,a.y); pctx.lineTo(b.x,b.y); pctx.stroke();
+  }
+}
+function pointOf(e){
+  const r = el.pad.getBoundingClientRect();
+  let p = e.pressure;
+  if (e.pointerType !== "pen" || !p) p = 0.5;
+  return { x:e.clientX-r.left, y:e.clientY-r.top, p:Math.max(.05, Math.min(1,p)) };
+}
+el.pad.addEventListener("pointerdown", e=>{
+  if (e.pointerType === "pen" && !el.penOnly.checked) el.penOnly.checked = true;
+  if (el.penOnly.checked && e.pointerType !== "pen") return;
+  e.preventDefault();
+  try{ el.pad.setPointerCapture(e.pointerId); }catch(err){}
+  active = [pointOf(e)];
+  strokes.push(active);
+});
+el.pad.addEventListener("pointermove", e=>{
+  if (!active) return;
+  e.preventDefault();
+  const p = pointOf(e), last = active[active.length-1];
+  if (Math.hypot(p.x-last.x, p.y-last.y) < 1.1) return;
+  active.push(p);
+  paintRaw([last,p]);
+});
+["pointerup","pointercancel"].forEach(t => el.pad.addEventListener(t, ()=>{ active = null; }));
+
+el.padUndo.addEventListener("click", ()=>{ strokes.pop(); repaint(); });
+el.padClear.addEventListener("click", ()=>{ strokes = []; repaint(); });
+el.padDone.addEventListener("click", closePad);
+el.padNext.addEventListener("click", ()=>{
+  commit();
+  const gs = listOf(cur.ch);
+  for (let i=0;i<VARIANTS;i++) if (!gs[i]) return openPad(cur.ch, i);
+  const pos = ALL.indexOf(cur.ch);
+  for (let k=1;k<=ALL.length;k++){
+    const ch = ALL[(pos+k)%ALL.length];
+    if (countOf(ch) < VARIANTS) return openPad(ch, firstEmpty(ch));
+  }
+  closePad();
+});
+el.goNext.addEventListener("click", ()=>{
+  for (const ch of ALL) if (countOf(ch) < VARIANTS) return openPad(ch, firstEmpty(ch));
+  openPad(ALL[0], 0);
+});
+el.segVariants.querySelectorAll("button").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    el.segVariants.querySelectorAll("button").forEach(o=>o.setAttribute("aria-pressed", String(o===b)));
+    VARIANTS = +b.dataset.v; font.variants = VARIANTS; persist(); renderGrid();
+  });
+});
+
+function commit(){
+  if (!cur.ch) return;
+  const g = normalize(strokes);
+  if (!font.glyphs[cur.ch]) font.glyphs[cur.ch] = [];
+  font.glyphs[cur.ch][cur.idx] = g;
+  persist();
+}
+function normalize(sts){
+  if (!geo) return null;
+  const pts = sts.flat();
+  if (pts.length < 2) return null;
+  let minX = Infinity, maxX = -Infinity;
+  for (const p of pts){ if (p.x<minX) minX=p.x; if (p.x>maxX) maxX=p.x; }
+  const k = EM/geo.em, out = [];
+  for (const st of sts){
+    if (st.length < 2) continue;
+    const flat = [];
+    for (const p of st) flat.push(Math.round((p.x-minX)*k), Math.round((p.y-geo.baseY)*k), Math.round(p.p*100));
+    out.push(flat);
+  }
+  if (!out.length) return null;
+  return { w: Math.round((maxX-minX)*k + EM*0.12), s: out };
+}
+function deNorm(g){
+  const k = geo.em/EM, out = [];
+  for (const flat of g.s){
+    const st = [];
+    for (let i=0;i<flat.length;i+=3) st.push({ x:flat[i]*k+geo.x0, y:flat[i+1]*k+geo.baseY, p:flat[i+2]/100 });
+    out.push(st);
+  }
+  return out;
+}
+
+/* ---------- glyph painting ---------- */
+function paintGlyph(ctx, g, x, y, size, color, weight){
+  const k = size/EM;
+  ctx.strokeStyle = color; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  for (const flat of g.s){
+    for (let i=3;i<flat.length;i+=3){
+      const ap = flat[i-1]/100, bp = flat[i+2]/100;
+      ctx.lineWidth = size*0.030*weight*(0.55 + 0.9*((ap+bp)/2));
+      ctx.beginPath();
+      ctx.moveTo(x+flat[i-3]*k, y+flat[i-2]*k);
+      ctx.lineTo(x+flat[i]*k,   y+flat[i+1]*k);
+      ctx.stroke();
+    }
+  }
+}
+
+/* ---------- synthesis ---------- */
+const FALLBACK = { "ä":"a","ö":"o","ü":"u","Ä":"A","Ö":"O","Ü":"U","’":"'","‘":"'","“":"\"","”":"\"","—":"–" };
+let lastPick = {};
+function pickGlyph(ch){
+  let key = ch, gs = listOf(key).filter(Boolean);
+  if (!gs.length && FALLBACK[key]){ key = FALLBACK[key]; gs = listOf(key).filter(Boolean); }
+  if (!gs.length && key !== key.toLowerCase()){ key = key.toLowerCase(); gs = listOf(key).filter(Boolean); }
+  if (!gs.length) return null;
+  if (gs.length === 1) return gs[0];
+  let i, t = 0;
+  do { i = Math.floor(Math.random()*gs.length); t++; } while (i === lastPick[key] && t < 8);
+  lastPick[key] = i;
+  return gs[i];
+}
+
+const PAGE = { w:1240, h:1754, pad:110 };
+const INKS = ["#1B3A6B","#15181B","#2F4858","#43331F","#7A1C2E"];
+let opts = { paper:"blank", ink:INKS[0] };
+
+function layout(text){
+  const size = +$("r-size").value;
+  const lh = size*(+$("r-lh").value/100);
+  const ls = size*(+$("r-ls").value/1000);
+  const mess = +$("r-ms").value/100;
+  const slant = +$("r-sl").value*Math.PI/180;
+  const weight = +$("r-pw").value/100;
+  const space = size*0.30, maxW = PAGE.w - PAGE.pad*2;
+  const missing = new Set(), pages = [[]];
+  let x = PAGE.pad, y = PAGE.pad + size*1.1, drift = 0, page = 0;
+  const slope = (Math.random()-0.5)*0.004*mess;
+
+  function newline(){
+    x = PAGE.pad; y += lh; drift = 0;
+    if (y > PAGE.h - PAGE.pad*0.6){ pages.push([]); page++; y = PAGE.pad + size*1.1; }
+  }
+
+  for (const line of String(text).split("\n")){
+    if (!line.trim()){ newline(); continue; }
+    for (const token of line.split(/(\s+)/)){
+      if (!token) continue;
+      if (/^\s+$/.test(token)){ if (x > PAGE.pad) x += space*(0.85 + Math.random()*0.4*(0.5+mess)); continue; }
+      const items = []; let w = 0;
+      for (const ch of token){
+        const g = pickGlyph(ch);
+        if (!g){ missing.add(ch); continue; }
+        items.push({ g, ch }); w += g.w/EM*size + ls;
+      }
+      if (!items.length) continue;
+      if (x + w > PAGE.pad + maxW && x > PAGE.pad) newline();
+      for (const { g, ch } of items){
+        drift += (Math.random()-0.5)*size*0.012*mess;
+        drift = Math.max(-size*0.05, Math.min(size*0.05, drift));
+        pages[page].push({
+          g, ch, x,
+          y: y + drift + (x-PAGE.pad)*slope,
+          size: size*(1 + (Math.random()-0.5)*0.05*mess),
+          rot: (Math.random()-0.5)*0.035*mess,
+          slant, weight
+        });
+        x += g.w/EM*size + ls + (Math.random()-0.5)*size*0.02*mess;
+      }
+    }
+    newline();
+  }
+  return { pages, missing:[...missing], size, lh };
+}
+
+/* ---------- page painting ---------- */
+let meta = null;          /* size + line height of the current render */
+let pageStates = [];      /* one per page: { items, hand } */
+let history = [];         /* edit snapshots for undo */
+let tool = "move";
+let rendered = false;
+
+function paintPaper(x){
+  if (opts.paper === "blank") return;
+  x.strokeStyle = "#CFDCE6"; x.lineWidth = 1;
+  for (let yy = PAGE.pad + meta.size*1.1; yy < PAGE.h - PAGE.pad*0.5; yy += meta.lh){
+    x.beginPath(); x.moveTo(PAGE.pad*0.5, yy+.5); x.lineTo(PAGE.w-PAGE.pad*0.5, yy+.5); x.stroke();
+  }
+  if (opts.paper === "grid"){
+    for (let xx = PAGE.pad*0.5; xx < PAGE.w-PAGE.pad*0.4; xx += meta.lh){
+      x.beginPath(); x.moveTo(xx+.5, PAGE.pad*0.5); x.lineTo(xx+.5, PAGE.h-PAGE.pad*0.5); x.stroke();
+    }
+  }
+  x.strokeStyle = "#EBCBCF"; x.lineWidth = 2;
+  x.beginPath(); x.moveTo(PAGE.pad*0.82, 0); x.lineTo(PAGE.pad*0.82, PAGE.h); x.stroke();
+}
+
+function paintHand(x, h){
+  x.save();
+  x.lineCap = "round"; x.lineJoin = "round"; x.strokeStyle = h.color;
+  if (h.type === "highlight"){ x.globalAlpha = 0.3; x.globalCompositeOperation = "multiply"; }
+  for (let i=1;i<h.pts.length;i++){
+    const a = h.pts[i-1], b = h.pts[i];
+    x.lineWidth = h.type === "highlight" ? h.w : h.w*(0.55 + 0.9*((a.p+b.p)/2));
+    x.beginPath(); x.moveTo(a.x,a.y); x.lineTo(b.x,b.y); x.stroke();
+  }
+  x.restore();
+}
+
+function paintState(cv, state){
+  const x = cv.getContext("2d");
+  x.setTransform(1,0,0,1,0,0);
+  x.fillStyle = "#FFFFFF"; x.fillRect(0,0,PAGE.w,PAGE.h);
+  paintPaper(x);
+  for (const h of state.hand) if (h.type === "highlight") paintHand(x,h);
+  for (const it of state.items){
+    x.save();
+    x.translate(it.x, it.y);
+    x.rotate(it.rot);
+    x.transform(1,0,-Math.tan(it.slant),1,0,0);
+    paintGlyph(x, it.g, 0, 0, it.size, opts.ink, it.weight);
+    x.restore();
+  }
+  for (const h of state.hand) if (h.type !== "highlight") paintHand(x,h);
+}
+
+/* ---------- editing ---------- */
+function glyphBox(it){
+  return {
+    x0: it.x - it.size*0.05,
+    x1: it.x + it.g.w/EM*it.size + it.size*0.05,
+    y0: it.y - it.size*1.05,
+    y1: it.y + it.size*0.34
+  };
+}
+function hitGlyph(state, x, y){
+  for (let i=state.items.length-1;i>=0;i--){
+    const b = glyphBox(state.items[i]);
+    if (x>=b.x0 && x<=b.x1 && y>=b.y0 && y<=b.y1) return i;
+  }
+  return -1;
+}
+function hitHand(state, x, y, r){
+  for (let i=state.hand.length-1;i>=0;i--){
+    for (const p of state.hand[i].pts) if (Math.hypot(p.x-x, p.y-y) < r) return i;
+  }
+  return -1;
+}
+function snapshot(n){
+  history.push({ n, items: pageStates[n].items.map(o=>({...o})), hand: pageStates[n].hand.slice() });
+  if (history.length > 40) history.shift();
+}
+function undoEdit(){
+  const h = history.pop();
+  if (!h) return;
+  pageStates[h.n].items = h.items;
+  pageStates[h.n].hand = h.hand;
+  paintState(el.sheets.querySelectorAll("canvas")[h.n], pageStates[h.n]);
+}
+
+function wireCanvas(cv, n){
+  let drag = null, dirty = false;
+  const pt = e => {
+    const r = cv.getBoundingClientRect(), k = PAGE.w / r.width;
+    return {
+      x: (e.clientX-r.left)*k,
+      y: (e.clientY-r.top)*k,
+      p: (e.pointerType === "pen" && e.pressure) ? Math.max(.05, e.pressure) : 0.5
+    };
+  };
+  const state = () => pageStates[n];
+
+  cv.addEventListener("pointerdown", e=>{
+    if (tool === "move") return;
+    e.preventDefault();
+    try{ cv.setPointerCapture(e.pointerId); }catch(err){}
+    const p = pt(e);
+    snapshot(n); dirty = true;
+
+    if (tool === "swap"){
+      const i = hitGlyph(state(), p.x, p.y);
+      if (i < 0){ history.pop(); dirty = false; return; }
+      const it = state().items[i];
+      const g = pickGlyph(it.ch);
+      if (g){ it.g = g; it.rot = (Math.random()-0.5)*0.035*(+$("r-ms").value/100); }
+      paintState(cv, state());
+      return;
+    }
+    if (tool === "erase"){ drag = "erase"; eraseAt(p); return; }
+
+    const size = +$("r-size").value;
+    drag = "draw";
+    state().hand.push({
+      type: tool,
+      color: tool === "highlight" ? "#F2D544" : opts.ink,
+      w: tool === "highlight" ? size*0.9 : size*0.030*(+$("r-pw").value/100)*2,
+      pts: [p]
+    });
+    paintState(cv, state());
+  });
+
+  function eraseAt(p){
+    const s = state();
+    const gi = hitGlyph(s, p.x, p.y);
+    if (gi >= 0) s.items.splice(gi,1);
+    const hi = hitHand(s, p.x, p.y, 22);
+    if (hi >= 0) s.hand.splice(hi,1);
+    paintState(cv, s);
+  }
+
+  cv.addEventListener("pointermove", e=>{
+    if (!drag) return;
+    e.preventDefault();
+    const p = pt(e);
+    if (drag === "erase"){ eraseAt(p); return; }
+    const h = state().hand[state().hand.length-1];
+    const last = h.pts[h.pts.length-1];
+    if (Math.hypot(p.x-last.x, p.y-last.y) < 3) return;
+    h.pts.push(p);
+    paintState(cv, state());
+  });
+  ["pointerup","pointercancel"].forEach(t => cv.addEventListener(t, ()=>{ drag = null; dirty = false; }));
+}
+
+const TOOLTIPS = {
+  move: "Scroll the page as usual.",
+  swap: "Tap any letter to swap it for another version of itself.",
+  erase: "Drag across letters or marks to remove them.",
+  pen: "Write straight onto the page with the Pencil.",
+  highlight: "Drag to highlight."
+};
+el.tools.querySelectorAll("button").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    if (b.dataset.t === "undo"){ undoEdit(); return; }
+    tool = b.dataset.t;
+    el.tools.querySelectorAll("button").forEach(o=>{
+      if (o.dataset.t !== "undo") o.setAttribute("aria-pressed", String(o===b));
+    });
+    el.toolTip.textContent = TOOLTIPS[tool] || "";
+    el.sheets.querySelectorAll("canvas").forEach(c=>{
+      c.style.touchAction = (tool === "move" || tool === "swap") ? "auto" : "none";
+    });
+  });
+});
+
+/* ---------- render ---------- */
+function doRender(){
+  lastPick = {};
+  const res = layout(el.text.value || "");
+  meta = res;
+  history = [];
+  el.sheets.innerHTML = "";
+  const any = res.pages.some(p => p.length);
+  pageStates = [];
+  if (!any){
+    const d = document.createElement("div"); d.className = "empty";
+    d.textContent = el.text.value.trim() ? "None of those characters have been drawn yet." : "Type something above, then write it out.";
+    el.sheets.appendChild(d);
+  } else {
+    let n = 0;
+    for (const items of res.pages){
+      if (!items.length) continue;
+      const state = { items, hand: [] };
+      pageStates.push(state);
+      const cv = document.createElement("canvas");
+      cv.width = PAGE.w; cv.height = PAGE.h;
+      cv.style.touchAction = (tool === "move" || tool === "swap") ? "auto" : "none";
+      el.sheets.appendChild(cv);
+      paintState(cv, state);
+      wireCanvas(cv, n++);
+    }
+  }
+  el.missing.innerHTML = res.missing.length ? "<b>Skipped, not drawn yet: " + res.missing.join(" ") + "</b>" : "";
+  rendered = any;
+  el.tools.classList.toggle("on", any);
+  if (any && !el.toolTip.textContent) el.toolTip.textContent = TOOLTIPS.move;
+  el.goShuffle.disabled = el.goSave.disabled = el.goPdf.disabled = !any;
+}
+el.goRender.addEventListener("click", doRender);
+el.goShuffle.addEventListener("click", doRender);
+
+/* ---------- vector PDF ---------- */
+function hexRGB(h){
+  return [parseInt(h.slice(1,3),16)/255, parseInt(h.slice(3,5),16)/255, parseInt(h.slice(5,7),16)/255]
+    .map(v=>v.toFixed(3)).join(" ");
+}
+const f2 = v => (Math.round(v*100)/100).toString();
+
+function glyphOps(out, g, size, weight){
+  const k = size/EM;
+  for (const flat of g.s){
+    let run = [], runW = null;
+    const flush = ()=>{
+      if (run.length < 2) { run = []; return; }
+      out.push(f2(runW) + " w");
+      out.push(f2(run[0].x) + " " + f2(run[0].y) + " m");
+      for (let i=1;i<run.length;i++) out.push(f2(run[i].x) + " " + f2(run[i].y) + " l");
+      out.push("S");
+      run = [];
+    };
+    for (let i=3;i<flat.length;i+=3){
+      const ap = flat[i-1]/100, bp = flat[i+2]/100;
+      const w = Math.round(size*0.030*weight*(0.55+0.9*((ap+bp)/2))*20)/20;
+      const a = { x: flat[i-3]*k, y: flat[i-2]*k };
+      const b = { x: flat[i]*k,   y: flat[i+1]*k };
+      if (runW === null || w !== runW){ const tail = run.length ? run[run.length-1] : a; flush(); runW = w; run = [tail]; }
+      if (!run.length) run.push(a);
+      run.push(b);
+    }
+    flush();
+  }
+}
+
+function pageOps(state){
+  const S = 72/150, out = [];
+  out.push("1 J 1 j");
+  out.push(S.toFixed(4) + " 0 0 " + (-S).toFixed(4) + " 0 " + (PAGE.h*S).toFixed(2) + " cm");
+
+  if (opts.paper !== "blank"){
+    out.push("0.812 0.863 0.902 RG 1 w");
+    for (let yy = PAGE.pad + meta.size*1.1; yy < PAGE.h - PAGE.pad*0.5; yy += meta.lh)
+      out.push(f2(PAGE.pad*0.5)+" "+f2(yy)+" m "+f2(PAGE.w-PAGE.pad*0.5)+" "+f2(yy)+" l S");
+    if (opts.paper === "grid")
+      for (let xx = PAGE.pad*0.5; xx < PAGE.w-PAGE.pad*0.4; xx += meta.lh)
+        out.push(f2(xx)+" "+f2(PAGE.pad*0.5)+" m "+f2(xx)+" "+f2(PAGE.h-PAGE.pad*0.5)+" l S");
+    out.push("0.922 0.796 0.812 RG 2 w");
+    out.push(f2(PAGE.pad*0.82)+" 0 m "+f2(PAGE.pad*0.82)+" "+f2(PAGE.h)+" l S");
+  }
+
+  const drawHand = only=>{
+    for (const h of state.hand){
+      if ((h.type === "highlight") !== only) continue;
+      out.push("q");
+      out.push(h.type === "highlight" ? "/GSh gs" : "/GSo gs");
+      out.push(hexRGB(h.color) + " RG");
+      for (let i=1;i<h.pts.length;i++){
+        const a = h.pts[i-1], b = h.pts[i];
+        const w = h.type === "highlight" ? h.w : h.w*(0.55+0.9*((a.p+b.p)/2));
+        out.push(f2(w)+" w "+f2(a.x)+" "+f2(a.y)+" m "+f2(b.x)+" "+f2(b.y)+" l S");
+      }
+      out.push("Q");
+    }
+  };
+
+  drawHand(true);
+  out.push(hexRGB(opts.ink) + " RG");
+  for (const it of state.items){
+    out.push("q");
+    const c = Math.cos(it.rot), s = Math.sin(it.rot);
+    out.push("1 0 0 1 " + f2(it.x) + " " + f2(it.y) + " cm");
+    out.push(c.toFixed(5)+" "+s.toFixed(5)+" "+(-s).toFixed(5)+" "+c.toFixed(5)+" 0 0 cm");
+    if (it.slant) out.push("1 0 " + (-Math.tan(it.slant)).toFixed(5) + " 1 0 0 cm");
+    glyphOps(out, it.g, it.size, it.weight);
+    out.push("Q");
+  }
+  drawHand(false);
+  return out.join("\n");
+}
+
+function buildPDF(){
+  const S = 72/150;
+  const W = (PAGE.w*S).toFixed(2), H = (PAGE.h*S).toFixed(2);
+  const streams = pageStates.map(pageOps);
+  const objs = [null, null, null];
+  const pageIds = [], contentIds = [];
+  for (let i=0;i<streams.length;i++){ pageIds.push(3+i*2); contentIds.push(4+i*2); }
+  objs[1] = "<< /Type /Catalog /Pages 2 0 R >>";
+  objs[2] = "<< /Type /Pages /Count " + streams.length + " /Kids [" + pageIds.map(i=>i+" 0 R").join(" ") + "] >>";
+  const res = "<< /ExtGState << /GSo << /ca 1 /CA 1 >> /GSh << /ca 0.3 /CA 0.3 /BM /Multiply >> >> >>";
+  for (let i=0;i<streams.length;i++){
+    objs[pageIds[i]] = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + W + " " + H + "] /Resources " + res + " /Contents " + contentIds[i] + " 0 R >>";
+    objs[contentIds[i]] = { stream: streams[i] };
+  }
+  let out = "%PDF-1.4\n";
+  const offsets = [];
+  for (let i=1;i<objs.length;i++){
+    offsets[i] = out.length;
+    let body = objs[i];
+    if (body && body.stream !== undefined)
+      body = "<< /Length " + body.stream.length + " >>\nstream\n" + body.stream + "\nendstream";
+    out += i + " 0 obj\n" + body + "\nendobj\n";
+  }
+  const xref = out.length;
+  out += "xref\n0 " + objs.length + "\n0000000000 65535 f \n";
+  for (let i=1;i<objs.length;i++) out += String(offsets[i]).padStart(10,"0") + " 00000 n \n";
+  out += "trailer\n<< /Size " + objs.length + " /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF";
+  return new Blob([out], { type:"application/pdf" });
+}
+el.goPdf.addEventListener("click", ()=>{
+  if (!pageStates.length) return;
+  shareBlob(buildPDF(), "handwriting.pdf", "application/pdf");
+});
+
+/* ---------- controls ---------- */
+function bindRange(id, lblId, fmt){
+  const r = $(id), out = $(lblId);
+  const upd = ()=>{ out.textContent = fmt(+r.value); };
+  r.addEventListener("input", ()=>{ upd(); if (rendered) doRender(); });
+  upd();
+}
+bindRange("r-size","lbl-size", v=>v+" px");
+bindRange("r-lh","lbl-lh", v=>v+"%");
+bindRange("r-ls","lbl-ls", v=>(v/10)+"%");
+bindRange("r-sl","lbl-sl", v=>v+"°");
+bindRange("r-ms","lbl-ms", v=>v+"%");
+bindRange("r-pw","lbl-pw", v=>v+"%");
+
+el.segPaper.querySelectorAll("button").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    el.segPaper.querySelectorAll("button").forEach(o=>o.setAttribute("aria-pressed", String(o===b)));
+    opts.paper = b.dataset.v; if (rendered) doRender();
+  });
+});
+INKS.forEach((c,i)=>{
+  const b = document.createElement("button");
+  b.style.background = c;
+  b.setAttribute("aria-pressed", String(i===0));
+  b.setAttribute("aria-label", "Ink colour " + (i+1));
+  b.addEventListener("click", ()=>{
+    el.inks.querySelectorAll("button").forEach(o=>o.setAttribute("aria-pressed", String(o===b)));
+    opts.ink = c; if (rendered) doRender();
+  });
+  el.inks.appendChild(b);
+});
+
+/* ---------- files ---------- */
+async function shareBlob(blob, name, type){
+  try{
+    const f = new File([blob], name, { type });
+    if (navigator.canShare && navigator.canShare({ files:[f] })){
+      await navigator.share({ files:[f] }); return;
+    }
+  }catch(e){ if (e && e.name === "AbortError") return; }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 5000);
+}
+el.goSave.addEventListener("click", async ()=>{
+  const cvs = [...el.sheets.querySelectorAll("canvas")];
+  for (let i=0;i<cvs.length;i++){
+    const blob = await new Promise(r=>cvs[i].toBlob(r,"image/png"));
+    if (blob) await shareBlob(blob, "handwriting-" + (i+1) + ".png", "image/png");
+  }
+});
+el.goExport.addEventListener("click", ()=>{
+  shareBlob(new Blob([JSON.stringify(font)], { type:"application/json" }), "longhand-font.json", "application/json");
+});
+el.goImport.addEventListener("click", ()=> el.file.click());
+el.file.addEventListener("change", async ()=>{
+  const f = el.file.files[0]; if (!f) return;
+  try{
+    const data = JSON.parse(await f.text());
+    if (!data || !data.glyphs) throw new Error("shape");
+    for (const ch in data.glyphs){
+      const incoming = data.glyphs[ch].filter(Boolean);
+      const have = (font.glyphs[ch] || []).filter(Boolean);
+      font.glyphs[ch] = have.concat(incoming).slice(0, 8);
+    }
+    persist(); renderGrid(); showFontInfo();
+    el.fontinfo.textContent = "Merged. Nothing was overwritten.";
+  }catch(e){
+    el.fontinfo.innerHTML = "<b>That file could not be read. It needs to be a Longhand export.</b>";
+  }
+  el.file.value = "";
+});
+let armed = false;
+el.goReset.addEventListener("click", ()=>{
+  if (!armed){
+    armed = true; el.goReset.textContent = "Tap again to delete everything";
+    setTimeout(()=>{ armed = false; el.goReset.textContent = "Delete all letters"; }, 4000);
+    return;
+  }
+  armed = false; el.goReset.textContent = "Delete all letters";
+  font = { v:1, variants:VARIANTS, glyphs:{} };
+  persist(); renderGrid(); showFontInfo();
+});
+function showFontInfo(){
+  const n = ALL.reduce((a,c)=>a+countOf(c),0);
+  el.fontinfo.textContent = n + " shapes drawn · " + Math.round(JSON.stringify(font).length/1024) + " KB";
+}
+
+/* ---------- offline ---------- */
+if ("serviceWorker" in navigator && location.protocol === "https:"){
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("./sw.js").catch(()=>{});
+  });
+}
+
+/* ---------- boot ---------- */
+(async function(){
+  const raw = await Store.get(KEY);
+  if (raw){
+    try{ const d = JSON.parse(raw); if (d && d.glyphs){ font = d; VARIANTS = d.variants || 5; } }catch(e){}
+  }
+  el.segVariants.querySelectorAll("button").forEach(b=>
+    b.setAttribute("aria-pressed", String(+b.dataset.v === VARIANTS)));
+  renderGrid();
+})();
+</script>
+</body>
+</html>
